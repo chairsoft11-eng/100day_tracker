@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>100일 다이어트 트래커 Pro</title>
+    
+    <!-- 아이폰 웹앱 설정 (추가됨) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="D-100 Diet">
+    <!-- 홈 화면 아이콘 (폰트어썸 아이콘을 사용할 수 없어 텍스트 기반이나 기본 스크린샷이 뜨지만, 설정을 위해 추가) -->
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2964/2964514.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+        body { font-family: 'Noto Sans KR', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        /* Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none; width: 100%; background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%;
+            background: #ffffff; border: 2px solid #4F46E5; cursor: pointer; margin-top: -8px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 6px; cursor: pointer; background: #E5E7EB; border-radius: 3px;
+        }
+        /* Pain Scale Gradient */
+        .pain-gradient {
+            background: linear-gradient(to right, #10B981, #FBBF24, #EF4444);
+            height: 6px; border-radius: 3px; width: 100%; position: absolute; top: 9px; z-index: -1;
+        }
+        .nav-item.active { color: #4F46E5; }
+        .nav-item { color: #9CA3AF; }
+        
+        /* Calendar Specific */
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+        }
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .calendar-day:hover { background-color: #EEF2FF; }
+        .calendar-day.selected { background-color: #4F46E5; color: white; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.3); }
+        .calendar-day.today { border: 2px solid #4F46E5; font-weight: bold; }
+        .dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 4px; }
+        .dot.success { background-color: #10B981; }
+        .dot.missed { background-color: #EF4444; }
+        .dot.none { display: none; }
+        
+        /* iOS Safe Area 대응 */
+        header { padding-top: max(1.5rem, env(safe-area-inset-top)); }
+        nav { padding-bottom: env(safe-area-inset-bottom); height: calc(4rem + env(safe-area-inset-bottom)); }
+        body { padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-gray-800">
+
+    <!-- 상단 헤더 -->
+    <header class="bg-indigo-600 text-white p-6 rounded-b-3xl shadow-lg relative overflow-hidden transition-all duration-300" id="main-header">
+        <div class="relative z-10">
+            <div class="flex justify-between items-start mb-2">
+                <div id="header-title-area">
+                    <h1 class="text-2xl font-bold" id="header-main-text">D-100 Pro</h1>
+                    <p class="text-indigo-100 text-xs" id="header-sub-text">무릎 통증 케어 & 다이어트</p>
+                </div>
+                <!-- 생리 주기 토글 -->
+                <button onclick="togglePeriod()" id="period-btn" class="bg-indigo-500 hover:bg-pink-400 text-xs px-3 py-1.5 rounded-full transition-colors border border-indigo-400 flex items-center gap-1">
+                    <i class="fas fa-venus"></i> <span>생리 X</span>
+                </button>
+            </div>
+            
+            <div class="flex justify-between items-end mt-4">
+                <div>
+                    <span id="d-day-display" class="text-4xl font-bold text-yellow-300">D-100</span>
+                    <p class="text-xs opacity-80 mt-1">Target: 49kg (-10kg)</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs opacity-70 mb-1" id="weight-input-label">오늘 체중</p>
+                    <div class="flex items-end gap-1 justify-end">
+                        <input type="number" id="daily-weight" placeholder="59.0" class="w-16 bg-white/20 text-white text-right font-bold p-1 rounded border-b border-white/50 focus:outline-none focus:bg-white/30 placeholder-indigo-300 text-lg">
+                        <span class="text-sm mb-1">kg</span>
+                    </div>
+                </div>
+            </div>
+            <!-- 생리 중일 때 나타나는 메시지 -->
+            <div id="period-msg" class="hidden mt-2 bg-pink-500/30 p-2 rounded text-xs text-pink-100">
+                <i class="fas fa-info-circle"></i> 호르몬 영향으로 체중이 1~2kg 늘 수 있어요. 가짜 살이니 안심하세요!
+            </div>
+        </div>
+        <div class="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-white/10 rounded-full blur-xl"></div>
+    </header>
+
+    <!-- 1. 트래커 뷰 (기본) -->
+    <main class="p-4 space-y-5" id="view-tracker">
+        <!-- 상단 알림 바 (과거 날짜 수정 시 표시) -->
+        <div id="edit-mode-banner" class="hidden bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-3 rounded shadow-sm text-sm flex justify-between items-center">
+            <span><i class="fas fa-history mr-2"></i> 과거 기록을 수정 중입니다.</span>
+            <button onclick="resetToToday()" class="text-xs bg-yellow-200 px-2 py-1 rounded font-bold hover:bg-yellow-300">오늘로 복귀</button>
+        </div>
+
+        <!-- 1. 컨디션 체크 (수면 & 통증) -->
+        <section class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+            <h2 class="text-sm font-bold mb-4 flex items-center text-gray-700">
+                <i class="fas fa-heartbeat mr-2 text-red-500"></i> 컨디션 체크
+            </h2>
+            
+            <!-- 수면 -->
+            <div class="mb-4">
+                <p class="text-xs text-gray-500 mb-2">수면 퀄리티 (야간 근무 후)</p>
+                <div class="flex gap-2">
+                    <button onclick="setSleep('good')" id="sleep-good" class="flex-1 py-2 rounded-lg border border-gray-200 text-xl grayscale hover:grayscale-0 transition active:scale-95">😊</button>
+                    <button onclick="setSleep('soso')" id="sleep-soso" class="flex-1 py-2 rounded-lg border border-gray-200 text-xl grayscale hover:grayscale-0 transition active:scale-95">😐</button>
+                    <button onclick="setSleep('bad')" id="sleep-bad" class="flex-1 py-2 rounded-lg border border-gray-200 text-xl grayscale hover:grayscale-0 transition active:scale-95">😫</button>
+                </div>
+            </div>
+
+            <!-- 통증 척도 (VAS) -->
+            <div class="relative pt-1">
+                <div class="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>무릎 통증</span>
+                    <span id="pain-value" class="font-bold text-indigo-600">0 - 통증 없음</span>
+                </div>
+                <div class="relative h-6">
+                    <div class="pain-gradient"></div>
+                    <input type="range" min="0" max="10" value="0" class="absolute top-0 w-full h-2 bg-transparent appearance-none cursor-pointer" oninput="updatePain(this.value)">
+                </div>
+                <p id="pain-advice" class="text-xs mt-1 text-gray-400">0~3점: 운동 가능 구간입니다.</p>
+            </div>
+        </section>
+
+        <!-- 2. 수분 & 커피 -->
+        <section class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+            <h2 class="text-sm font-bold mb-3 flex items-center text-gray-700">
+                <i class="fas fa-tint mr-2 text-blue-500"></i> 수분 & 커피
+            </h2>
+            <div class="flex justify-between items-center gap-4">
+                <!-- 커피 토글 -->
+                <button onclick="toggleCoffee()" id="coffee-btn" class="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 text-gray-400 text-xs font-bold transition-all">
+                    <i class="fas fa-coffee text-sm"></i> <span>모닝 커피</span>
+                </button>
+                
+                <!-- 물 카운터 -->
+                <div class="flex-1 bg-blue-50 rounded-xl p-2 flex justify-between items-center">
+                    <div class="text-xs font-medium text-blue-800 ml-2">
+                        <span id="water-count" class="text-lg font-bold">0</span> / 8잔
+                    </div>
+                    <button onclick="addWater()" class="bg-blue-500 text-white w-8 h-8 rounded-full shadow-md hover:bg-blue-600 active:scale-90 transition">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. 식단 기록 -->
+        <section class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+            <h2 class="text-sm font-bold mb-3 flex items-center text-gray-700 justify-between">
+                <div><i class="fas fa-utensils mr-2 text-green-500"></i> 식단 기록</div>
+                <button class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded" onclick="alert('시간을 클릭하여 수정하세요')"><i class="fas fa-cog"></i> 설정</button>
+            </h2>
+
+            <div class="space-y-3" id="meal-container">
+                <!-- JS Rendering -->
+            </div>
+        </section>
+
+        <!-- 4. 운동 루틴 -->
+        <section class="bg-white p-5 rounded-2xl shadow-sm border-l-4 border-indigo-500">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-sm font-bold text-gray-700 flex items-center">
+                    <i class="fas fa-dumbbell mr-2 text-indigo-500"></i> 운동 루틴
+                </h2>
+                <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-bold">
+                    <button onclick="setMode('work')" id="btn-work" class="px-3 py-1.5 rounded-md shadow-sm bg-white text-indigo-600 transition">근무일</button>
+                    <button onclick="setMode('off')" id="btn-off" class="px-3 py-1.5 rounded-md text-gray-400 transition">휴무일</button>
+                </div>
+            </div>
+
+            <ul id="exercise-list" class="space-y-2">
+                <!-- Short foot is always included -->
+            </ul>
+        </section>
+        
+        <button onclick="saveDailyLog()" class="w-full bg-indigo-600 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-indigo-700 active:scale-95 transition flex justify-center items-center mt-2 mb-4">
+            <i class="fas fa-check-circle mr-2"></i> <span id="save-btn-text">오늘 기록 완료</span>
+        </button>
+    </main>
+
+    <!-- 2. 달력 뷰 (숨김) -->
+    <main class="p-5 space-y-6 hidden" id="view-calendar">
+        <section class="bg-white p-5 rounded-2xl shadow-sm">
+            <div class="flex justify-between items-center mb-6">
+                <button onclick="changeMonth(-1)" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500"><i class="fas fa-chevron-left"></i></button>
+                <h2 class="text-lg font-bold text-gray-800" id="current-month-year">2024년 5월</h2>
+                <button onclick="changeMonth(1)" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500"><i class="fas fa-chevron-right"></i></button>
+            </div>
+
+            <!-- 요일 헤더 -->
+            <div class="grid grid-cols-7 gap-2 mb-2 text-center text-xs font-bold text-gray-400">
+                <div class="text-red-400">일</div>
+                <div>월</div>
+                <div>화</div>
+                <div>수</div>
+                <div>목</div>
+                <div>금</div>
+                <div class="text-blue-400">토</div>
+            </div>
+
+            <!-- 날짜 그리드 -->
+            <div class="calendar-grid" id="calendar-days">
+                <!-- JS Generated -->
+            </div>
+            
+            <div class="mt-6 flex justify-center gap-4 text-xs text-gray-500">
+                <div class="flex items-center gap-1"><div class="dot success"></div> 기록 완료</div>
+                <div class="flex items-center gap-1"><div class="dot missed"></div> 기록 누락</div>
+            </div>
+        </section>
+
+        <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+             <h3 class="font-bold text-indigo-800 text-sm mb-1"><i class="fas fa-history"></i> 빈틈 채우기</h3>
+             <p class="text-xs text-indigo-700 leading-relaxed">
+                빨간 점이 있는 날짜는 기록이 누락된 날입니다. 
+                해당 날짜를 클릭하면 그날의 기록을 채워 넣을 수 있습니다.
+             </p>
+        </div>
+    </main>
+
+    <!-- 3. 통계 뷰 (숨김) -->
+    <main class="p-5 space-y-6 hidden" id="view-stats">
+        <!-- 체중 그래프 -->
+        <section class="bg-white p-5 rounded-2xl shadow-sm">
+            <h2 class="text-lg font-bold mb-4 text-indigo-800">📉 체중 변화 로그</h2>
+            <div class="h-64 w-full">
+                <canvas id="weightChart"></canvas>
+            </div>
+        </section>
+        
+        <!-- 통증 변화 그래프 -->
+        <section class="bg-white p-5 rounded-2xl shadow-sm">
+            <h2 class="text-lg font-bold mb-2 text-red-500">🩹 무릎 통증 추이</h2>
+            <p class="text-xs text-gray-400 mb-4">통증이 5점 이상이면 휴식이 필요합니다.</p>
+            <div class="h-40 w-full">
+                <canvas id="painChart"></canvas>
+            </div>
+        </section>
+    </main>
+
+    <!-- 하단 네비게이션 (3개 탭) -->
+    <nav class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 flex justify-around items-center z-50 shadow-[0_-5px_10px_rgba(0,0,0,0.02)]">
+        <button onclick="switchTab('tracker')" class="nav-item active flex flex-col items-center justify-center w-full h-full" id="nav-tracker">
+            <i class="fas fa-calendar-check text-lg mb-1"></i>
+            <span class="text-[10px] font-bold">기록하기</span>
+        </button>
+        <button onclick="switchTab('calendar')" class="nav-item flex flex-col items-center justify-center w-full h-full" id="nav-calendar">
+            <i class="fas fa-calendar-alt text-lg mb-1"></i>
+            <span class="text-[10px] font-bold">달력</span>
+        </button>
+        <button onclick="switchTab('stats')" class="nav-item flex flex-col items-center justify-center w-full h-full" id="nav-stats">
+            <i class="fas fa-chart-line text-lg mb-1"></i>
+            <span class="text-[10px] font-bold">통계</span>
+        </button>
+    </nav>
+
+    <!-- 알림 -->
+    <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 bg-gray-900/90 backdrop-blur text-white px-6 py-3 rounded-full shadow-2xl opacity-0 pointer-events-none transition-opacity duration-300 z-50 text-sm font-bold flex items-center">
+        <i class="fas fa-check-circle text-green-400 mr-2"></i> <span>저장 완료!</span>
+    </div>
+
+    <script>
+        // --- 데이터 상태 ---
+        let currentMode = 'work'; 
+        let waterIntake = 0;
+        let isCoffeeDrank = false;
+        let isPeriod = false;
+        let sleepQuality = null; 
+        let painLevel = 0;
+        
+        // 날짜 관련 상태
+        let today = new Date();
+        let currentMonthDate = new Date(); // 달력에서 보고 있는 월
+        let editingDate = new Date(); // 현재 기록/수정 중인 날짜 (기본 오늘)
+
+        // 기록 시뮬레이션 데이터 (달력 점 표시용)
+        // 날짜 문자열(YYYY-MM-DD) 키로 가짐. true면 기록됨.
+        const recordStatus = {}; 
+
+        let meals = [
+            { id: 'breakfast', time: '11:30', name: '기상 직후', desc: '사과, 계란, 두유', type: 'light' },
+            { id: 'lunch', time: '14:30', name: '출근 전 (메인)', desc: '일반식 1/2', type: 'heavy' },
+            { id: 'dinner', time: '19:00', name: '근무 중', desc: '단백질 위주', type: 'protein' },
+            { id: 'snack', time: '23:30', name: '간식 (선택)', desc: '야채스틱/견과류', type: 'optional' }
+        ];
+
+        const routines = {
+            work: [
+                { name: '발바닥 아치 만들기 (숏풋)', time: '수시로', icon: 'fa-shoe-prints', tag: '매일필수' },
+                { name: 'L자 다리 (부종제거)', time: '20분', icon: 'fa-bed', tag: '필수' },
+                { name: '종아리/안쪽 폼롤러', time: '15분', icon: 'fa-hockey-puck', tag: '마사지' },
+                { name: '브릿지 (엉덩이)', time: '15회x3', icon: 'fa-child', tag: '재활' }
+            ],
+            off: [
+                { name: '발바닥 아치 만들기 (숏풋)', time: '3분', icon: 'fa-shoe-prints', tag: '매일필수' },
+                { name: '실내 자전거 (안장 높게)', time: '40분', icon: 'fa-bicycle', tag: '유산소' },
+                { name: '상체 루틴 (등/어깨)', time: '20분', icon: 'fa-dumbbell', tag: '근력' },
+                { name: '스티프 데드리프트', time: '15회x3', icon: 'fa-weight-hanging', tag: '후면' },
+                { name: '플랭크', time: '30초x4', icon: 'fa-running', tag: '코어' }
+            ]
+        };
+
+        let weightChartInstance = null;
+        let painChartInstance = null;
+
+        // --- 초기화 ---
+        window.onload = function() {
+            initMockData(); // 데모용 과거 데이터 생성
+            renderMeals();
+            setMode('work');
+            initCharts();
+            renderCalendar();
+            updateHeaderDate();
+        };
+
+        // 데모용 데이터 생성 (지난 5일간 일부는 기록, 일부는 누락)
+        function initMockData() {
+            for(let i=1; i<=5; i++) {
+                let d = new Date();
+                d.setDate(d.getDate() - i);
+                const key = formatDateKey(d);
+                // 랜덤하게 기록 여부 결정 (짝수날은 기록함)
+                if(i % 2 === 0) recordStatus[key] = true; 
+            }
+        }
+        
+        function formatDateKey(date) {
+            return `${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()}`;
+        }
+
+        // --- 달력 로직 ---
+        function renderCalendar() {
+            const year = currentMonthDate.getFullYear();
+            const month = currentMonthDate.getMonth();
+            
+            document.getElementById('current-month-year').innerText = `${year}년 ${month + 1}월`;
+            
+            const firstDay = new Date(year, month, 1).getDay();
+            const lastDate = new Date(year, month + 1, 0).getDate();
+            
+            const grid = document.getElementById('calendar-days');
+            grid.innerHTML = '';
+            
+            // 빈 칸 채우기
+            for (let i = 0; i < firstDay; i++) {
+                grid.innerHTML += `<div></div>`;
+            }
+            
+            const todayKey = formatDateKey(today);
+            const editingKey = formatDateKey(editingDate);
+
+            // 날짜 생성
+            for (let i = 1; i <= lastDate; i++) {
+                const thisDate = new Date(year, month, i);
+                const key = formatDateKey(thisDate);
+                const isToday = (key === todayKey);
+                const isSelected = (key === editingKey);
+                
+                let dotClass = 'none';
+                // 미래 날짜가 아니고, 기록이 있으면 success, 없으면 missed (데모용: 오늘 이전 날짜만)
+                if (thisDate < today) {
+                    dotClass = recordStatus[key] ? 'success' : 'missed';
+                } else if (isToday) {
+                     // 오늘은 기록했으면 success
+                     dotClass = recordStatus[key] ? 'success' : 'none';
+                }
+
+                grid.innerHTML += `
+                    <div class="calendar-day ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}" 
+                         onclick="selectDate(${year}, ${month}, ${i})">
+                        <span>${i}</span>
+                        <div class="dot ${dotClass}"></div>
+                    </div>
+                `;
+            }
+        }
+
+        function changeMonth(delta) {
+            currentMonthDate.setMonth(currentMonthDate.getMonth() + delta);
+            renderCalendar();
+        }
+
+        function selectDate(year, month, day) {
+            editingDate = new Date(year, month, day);
+            updateHeaderDate(); // 헤더 업데이트
+            renderCalendar(); // 선택 표시 업데이트
+            switchTab('tracker'); // 트래커 뷰로 이동
+            
+            // 과거 날짜면 배너 표시
+            const todayKey = formatDateKey(today);
+            const editKey = formatDateKey(editingDate);
+            
+            if (editKey !== todayKey) {
+                document.getElementById('edit-mode-banner').classList.remove('hidden');
+                document.getElementById('save-btn-text').innerText = `${month+1}월 ${day}일 기록 저장`;
+                document.getElementById('weight-input-label').innerText = "그날 체중";
+            } else {
+                resetToTodayUI();
+            }
+            
+            // (실제 앱에서는 여기서 해당 날짜 데이터를 불러와야 함. 여기선 폼 리셋만 시뮬레이션)
+            resetFormForDemo();
+        }
+
+        function resetToToday() {
+            editingDate = new Date();
+            updateHeaderDate();
+            renderCalendar();
+            resetToTodayUI();
+            resetFormForDemo();
+        }
+
+        function resetToTodayUI() {
+            document.getElementById('edit-mode-banner').classList.add('hidden');
+            document.getElementById('save-btn-text').innerText = "오늘 기록 완료";
+            document.getElementById('weight-input-label').innerText = "오늘 체중";
+        }
+        
+        function updateHeaderDate() {
+            const isToday = formatDateKey(editingDate) === formatDateKey(today);
+            
+            if (isToday) {
+                document.getElementById('header-main-text').innerText = "D-100 Pro";
+                document.getElementById('header-sub-text').innerText = "무릎 통증 케어 & 다이어트";
+                document.getElementById('d-day-display').innerText = "D-100";
+            } else {
+                const m = editingDate.getMonth() + 1;
+                const d = editingDate.getDate();
+                document.getElementById('header-main-text').innerText = `${m}월 ${d}일 기록`;
+                document.getElementById('header-sub-text').innerText = "과거 기록 수정 모드";
+                document.getElementById('d-day-display').innerText = "-";
+            }
+        }
+
+        function resetFormForDemo() {
+            // 데모용: 날짜 바뀔 때마다 입력 폼 초기화 시늉
+            waterIntake = 0;
+            document.getElementById('water-count').innerText = 0;
+            painLevel = 0;
+            updatePain(0);
+            document.querySelector('input[type=range]').value = 0;
+            // 체크박스들 해제... (생략)
+        }
+
+        // --- 탭 전환 ---
+        function switchTab(tabName) {
+            const views = ['tracker', 'calendar', 'stats'];
+            views.forEach(v => {
+                const el = document.getElementById(`view-${v}`);
+                const nav = document.getElementById(`nav-${v}`);
+                if (v === tabName) {
+                    el.classList.remove('hidden');
+                    nav.classList.add('active', 'text-indigo-600');
+                    nav.classList.remove('text-gray-400');
+                } else {
+                    el.classList.add('hidden');
+                    nav.classList.remove('active', 'text-indigo-600');
+                    nav.classList.add('text-gray-400');
+                }
+            });
+            
+            if (tabName === 'calendar') {
+                renderCalendar(); // 달력 볼 때마다 리렌더링
+            } else if (tabName === 'stats') {
+                if(weightChartInstance) weightChartInstance.update();
+                if(painChartInstance) painChartInstance.update();
+            }
+        }
+
+        // --- 기존 기능 로직 (생리, 수면, 통증 등) ---
+        function togglePeriod() {
+            isPeriod = !isPeriod;
+            const btn = document.getElementById('period-btn');
+            const msg = document.getElementById('period-msg');
+            if(isPeriod) {
+                btn.classList.replace('bg-indigo-500', 'bg-pink-500');
+                btn.classList.replace('border-indigo-400', 'border-pink-500');
+                btn.innerHTML = '<i class="fas fa-venus text-white"></i> <span class="text-white font-bold">생리 중</span>';
+                msg.classList.remove('hidden');
+            } else {
+                btn.classList.replace('bg-pink-500', 'bg-indigo-500');
+                btn.classList.replace('border-pink-500', 'border-indigo-400');
+                btn.innerHTML = '<i class="fas fa-venus"></i> <span>생리 X</span>';
+                msg.classList.add('hidden');
+            }
+        }
+
+        function setSleep(quality) {
+            ['good', 'soso', 'bad'].forEach(q => {
+                const el = document.getElementById(`sleep-${q}`);
+                if(q === quality) {
+                    el.classList.remove('grayscale', 'border-gray-200');
+                    el.classList.add('grayscale-0', 'border-indigo-500', 'bg-indigo-50', 'ring-1', 'ring-indigo-500');
+                } else {
+                    el.classList.add('grayscale', 'border-gray-200');
+                    el.classList.remove('grayscale-0', 'border-indigo-500', 'bg-indigo-50', 'ring-1', 'ring-indigo-500');
+                }
+            });
+        }
+
+        function updatePain(val) {
+            painLevel = val;
+            const label = document.getElementById('pain-value');
+            const advice = document.getElementById('pain-advice');
+            label.innerText = `${val} - `;
+            if(val <= 3) {
+                label.innerText += "양호"; label.className = "font-bold text-green-600";
+                advice.innerText = "운동하기 좋은 상태입니다.";
+            } else if(val <= 6) {
+                label.innerText += "주의"; label.className = "font-bold text-yellow-600";
+                advice.innerText = "무리하지 마세요. 강도 낮추기.";
+            } else {
+                label.innerText += "위험"; label.className = "font-bold text-red-600";
+                advice.innerText = "운동 중단! 얼음찜질 필요.";
+            }
+        }
+
+        function toggleCoffee() {
+            isCoffeeDrank = !isCoffeeDrank;
+            const btn = document.getElementById('coffee-btn');
+            if (isCoffeeDrank) {
+                btn.classList.remove('text-gray-400', 'border-gray-200');
+                btn.classList.add('bg-amber-100', 'text-amber-700', 'border-amber-200');
+            } else {
+                btn.classList.add('text-gray-400', 'border-gray-200');
+                btn.classList.remove('bg-amber-100', 'text-amber-700', 'border-amber-200');
+            }
+        }
+
+        function addWater() {
+            if (waterIntake < 8) {
+                waterIntake++;
+                document.getElementById('water-count').innerText = waterIntake;
+            }
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            if(mode === 'work') {
+                document.getElementById('btn-work').className = "px-3 py-1.5 rounded-md shadow-sm bg-white text-indigo-600 transition";
+                document.getElementById('btn-off').className = "px-3 py-1.5 rounded-md text-gray-400 transition hover:bg-gray-100";
+            } else {
+                document.getElementById('btn-work').className = "px-3 py-1.5 rounded-md text-gray-400 transition hover:bg-gray-100";
+                document.getElementById('btn-off').className = "px-3 py-1.5 rounded-md shadow-sm bg-white text-indigo-600 transition";
+            }
+            renderExercise();
+        }
+
+        function renderMeals() {
+            const container = document.getElementById('meal-container');
+            container.innerHTML = meals.map((meal, index) => `
+                <div class="flex items-center justify-between text-sm">
+                    <div class="flex items-center gap-3">
+                        <input type="time" value="${meal.time}" class="text-xs font-bold text-gray-500 bg-gray-50 rounded px-1 cursor-pointer outline-none">
+                        <div>
+                            <div class="font-bold text-gray-700">${meal.name}</div>
+                            <div class="text-xs text-gray-400">${meal.desc}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <select class="text-xs border border-gray-200 rounded p-1 outline-none">
+                            <option>적정</option>
+                            <option>반만</option>
+                            <option>과식</option>
+                            <option>X</option>
+                        </select>
+                        <input type="checkbox" class="w-5 h-5 accent-green-500 rounded cursor-pointer">
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderExercise() {
+            const list = routines[currentMode];
+            const container = document.getElementById('exercise-list');
+            container.innerHTML = list.map((ex, idx) => `
+                <li class="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex items-center cursor-pointer hover:bg-indigo-50 transition" onclick="toggleEx(this)">
+                    <div class="w-8 h-8 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center mr-3 text-sm">
+                        <i class="fas ${ex.icon}"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex justify-between items-center">
+                            <h4 class="font-bold text-sm text-gray-800">${ex.name}</h4>
+                            <span class="text-[10px] font-bold text-indigo-400 bg-indigo-50 px-1.5 py-0.5 rounded">${ex.tag}</span>
+                        </div>
+                        <p class="text-xs text-gray-400">${ex.time}</p>
+                    </div>
+                    <div class="check-circle w-5 h-5 rounded-full border-2 border-gray-200 ml-2 flex items-center justify-center text-white transition">
+                        <i class="fas fa-check text-[10px]"></i>
+                    </div>
+                </li>
+            `).join('');
+        }
+
+        function toggleEx(el) {
+            const check = el.querySelector('.check-circle');
+            const title = el.querySelector('h4');
+            if(check.classList.contains('bg-indigo-500')) {
+                check.classList.remove('bg-indigo-500', 'border-indigo-500');
+                check.classList.add('border-gray-200');
+                title.classList.remove('line-through', 'opacity-50');
+            } else {
+                check.classList.add('bg-indigo-500', 'border-indigo-500');
+                check.classList.remove('border-gray-200');
+                title.classList.add('line-through', 'opacity-50');
+            }
+        }
+
+        function saveDailyLog() {
+            const toast = document.getElementById('toast');
+            toast.classList.remove('opacity-0');
+            setTimeout(() => toast.classList.add('opacity-0'), 2000);
+            
+            // 현재 편집 중인 날짜에 기록 완료 표시 추가
+            const key = formatDateKey(editingDate);
+            recordStatus[key] = true;
+            
+            // 차트 등 업데이트 (데모)
+            const newWeight = document.getElementById('daily-weight').value;
+            if(newWeight) {
+                weightChartInstance.data.datasets[0].data[6] = newWeight;
+                weightChartInstance.update();
+            }
+            painChartInstance.data.datasets[0].data[6] = painLevel;
+            painChartInstance.update();
+        }
+
+        function initCharts() {
+            const wCtx = document.getElementById('weightChart').getContext('2d');
+            weightChartInstance = new Chart(wCtx, {
+                type: 'line',
+                data: {
+                    labels: ['D-6', 'D-5', 'D-4', 'D-3', 'D-2', 'D-1', '오늘'],
+                    datasets: [{
+                        label: '체중', data: [59.8, 59.5, 59.5, 59.2, 59.0, 58.8, 59.0],
+                        borderColor: '#4F46E5', tension: 0.4, borderWidth: 2, pointBackgroundColor:'#fff'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: {display:false} }, scales: { y: { suggestedMin: 57, suggestedMax: 61 } } }
+            });
+
+            const pCtx = document.getElementById('painChart').getContext('2d');
+            painChartInstance = new Chart(pCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['D-6', 'D-5', 'D-4', 'D-3', 'D-2', 'D-1', '오늘'],
+                    datasets: [{
+                        label: '통증 레벨', data: [2, 1, 3, 5, 2, 1, 0],
+                        backgroundColor: (ctx) => {
+                            const val = ctx.raw;
+                            return val > 6 ? '#EF4444' : (val > 3 ? '#FBBF24' : '#10B981');
+                        },
+                        borderRadius: 4
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: {display:false} }, scales: { y: { min: 0, max: 10 } } }
+            });
+        }
+    </script>
+</body>
+</html>
