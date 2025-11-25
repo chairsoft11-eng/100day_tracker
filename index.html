@@ -140,10 +140,8 @@ export default function App() {
   // 달력 날짜 클릭 핸들러
   const handleDateClick = (day) => {
     const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-    // 시간대 오차 보정 (KST 고려 단순화)
     const dateStr = new Date(clickedDate.getTime() - (clickedDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
     
-    // 해당 날짜 데이터가 있으면 불러오기
     const existingData = entries.find(e => e.date === dateStr);
     
     if (existingData) {
@@ -186,12 +184,10 @@ export default function App() {
     
     const days = [];
     for (let i = 0; i < firstDayOfMonth; i++) {
-      days.push(<div key={`empty-${i}`} className="h-14"></div>);
+      days.push(<div key={`empty-${i}`} className="aspect-square"></div>); // 정사각형 비율 유지
     }
     
     for (let day = 1; day <= daysInMonth; day++) {
-      const dateStr = new Date(year, month, day + 1).toISOString().split('T')[0]; // 간단한 날짜 생성 문자열 조합 시 주의 (여기선 로직 단순화)
-      // 정확한 문자열 비교를 위해 생성
       const checkDate = new Date(year, month, day);
       const checkDateStr = new Date(checkDate.getTime() - (checkDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
       
@@ -202,15 +198,15 @@ export default function App() {
         <button
           key={day}
           onClick={() => handleDateClick(day)}
-          className={`h-14 border border-slate-50 rounded-lg flex flex-col items-center justify-center relative transition-colors ${
-            isToday ? 'bg-blue-50 border-blue-200' : 'hover:bg-slate-50'
+          className={`aspect-square border border-slate-50 rounded-lg flex flex-col items-center justify-center relative transition-colors ${
+            isToday ? 'bg-blue-50 border-blue-200 shadow-sm' : 'hover:bg-slate-50'
           }`}
         >
-          <span className={`text-xs font-bold ${isToday ? 'text-blue-600' : 'text-slate-700'}`}>{day}</span>
+          <span className={`text-[10px] sm:text-xs font-bold ${isToday ? 'text-blue-600' : 'text-slate-700'}`}>{day}</span>
           {entry && (
-            <div className="flex gap-0.5 mt-1">
-              <div className={`w-1.5 h-1.5 rounded-full ${entry.kneePain >= 5 ? 'bg-red-400' : 'bg-green-400'}`}></div>
-              {entry.exercise && <div className="w-1.5 h-1.5 rounded-full bg-purple-400"></div>}
+            <div className="flex gap-0.5 mt-0.5 sm:mt-1">
+              <div className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${entry.kneePain >= 5 ? 'bg-red-400' : 'bg-green-400'}`}></div>
+              {entry.exercise && <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-purple-400"></div>}
             </div>
           )}
         </button>
@@ -221,24 +217,26 @@ export default function App() {
 
   // --- 컴포넌트 렌더링 ---
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800 font-sans pb-24">
+    // min-h-[100dvh]: 모바일 주소창 높이를 고려한 100% 높이
+    // overflow-x-hidden: 가로 스크롤 방지
+    <div className="min-h-[100dvh] bg-gray-50 text-gray-800 font-sans pb-32 overflow-x-hidden">
       
-      {/* 상단 헤더 (고정) */}
-      <header className="bg-gradient-to-r from-slate-800 to-slate-900 text-white p-6 rounded-b-3xl shadow-xl sticky top-0 z-20">
+      {/* 상단 헤더 (Sticky) */}
+      <header className="bg-gradient-to-r from-slate-800 to-slate-900 text-white p-5 pt-6 pb-6 rounded-b-3xl shadow-xl sticky top-0 z-20">
         <div className="max-w-md mx-auto">
           <div className="flex justify-between items-end mb-3">
             <div>
-              <h1 className="text-xl font-bold flex items-center gap-2">
+              <h1 className="text-lg font-bold flex items-center gap-2">
                 <Moon className="w-5 h-5 text-yellow-300" />
                 야간근무 헬스케어
               </h1>
-              <p className="text-slate-400 text-xs mt-1">
+              <p className="text-slate-400 text-[10px] mt-1">
                 목표: {USER_PROFILE.goalWeight}kg (현재 {entries[0]?.weight || USER_PROFILE.startWeight}kg)
               </p>
             </div>
             <div className="text-right">
-              <div className="text-3xl font-extrabold text-blue-400">{dDayInfo.label}</div>
-              <div className="text-xs text-slate-400">{Math.round(dDayInfo.progress)}% 달성</div>
+              <div className="text-2xl font-extrabold text-blue-400">{dDayInfo.label}</div>
+              <div className="text-[10px] text-slate-400">{Math.round(dDayInfo.progress)}% 달성</div>
             </div>
           </div>
           <div className="w-full bg-slate-700 h-2 rounded-full overflow-hidden">
@@ -251,8 +249,8 @@ export default function App() {
       </header>
 
       {/* 탭 네비게이션 */}
-      <div className="max-w-md mx-auto px-4 mt-4 mb-2">
-        <div className="flex bg-white rounded-xl p-1 shadow-sm border border-gray-200">
+      <div className="max-w-md mx-auto px-4 mt-4 mb-2 sticky top-[100px] z-10">
+        <div className="flex bg-white/90 backdrop-blur-sm rounded-xl p-1 shadow-sm border border-gray-200">
           {[
             { id: 'record', label: '기록', icon: Activity },
             { id: 'calendar', label: '달력', icon: CalendarIcon },
@@ -275,13 +273,13 @@ export default function App() {
         </div>
       </div>
 
-      <main className="max-w-md mx-auto px-4">
+      <main className="max-w-md mx-auto px-4 w-full">
         
         {/* === [탭 1] 기록 화면 === */}
         {activeTab === 'record' && (
           <div className="space-y-6 animate-in fade-in duration-300">
             <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
-              <h2 className="text-lg font-bold mb-4 text-slate-800 flex items-center justify-between">
+              <h2 className="text-base font-bold mb-4 text-slate-800 flex items-center justify-between">
                 <span>오늘의 기록</span>
                 <span className="text-xs font-normal text-slate-400 bg-slate-100 px-2 py-1 rounded">{formData.date}</span>
               </h2>
@@ -338,7 +336,7 @@ export default function App() {
                       <button
                         key={score} type="button"
                         onClick={() => setFormData(prev => ({ ...prev, sleepQuality: score }))}
-                        className={`flex-1 h-8 rounded-md text-xs font-bold transition-colors ${
+                        className={`flex-1 h-9 rounded-md text-xs font-bold transition-colors ${
                           formData.sleepQuality === score 
                             ? 'bg-indigo-500 text-white' 
                             : 'bg-gray-100 text-gray-400'
@@ -356,9 +354,9 @@ export default function App() {
                   <Droplets className="w-3 h-3" /> 수분 섭취 (현재: {formData.water}ml)
                 </label>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => handleWaterAdd(250)} className="flex-1 bg-blue-50 text-blue-600 py-2 rounded-lg text-xs font-bold hover:bg-blue-100">+250ml</button>
-                  <button type="button" onClick={() => handleWaterAdd(500)} className="flex-1 bg-blue-50 text-blue-600 py-2 rounded-lg text-xs font-bold hover:bg-blue-100">+500ml</button>
-                  <button type="button" onClick={() => setFormData(prev => ({...prev, water: 0}))} className="w-10 bg-gray-100 text-gray-400 rounded-lg flex items-center justify-center"><Trash2 className="w-3 h-3"/></button>
+                  <button type="button" onClick={() => handleWaterAdd(250)} className="flex-1 bg-blue-50 text-blue-600 py-2.5 rounded-lg text-xs font-bold hover:bg-blue-100 touch-manipulation">+250ml</button>
+                  <button type="button" onClick={() => handleWaterAdd(500)} className="flex-1 bg-blue-50 text-blue-600 py-2.5 rounded-lg text-xs font-bold hover:bg-blue-100 touch-manipulation">+500ml</button>
+                  <button type="button" onClick={() => setFormData(prev => ({...prev, water: 0}))} className="w-12 bg-gray-100 text-gray-400 rounded-lg flex items-center justify-center touch-manipulation"><Trash2 className="w-4 h-4"/></button>
                 </div>
               </div>
 
@@ -372,7 +370,7 @@ export default function App() {
                 />
               </div>
 
-              <button type="submit" className="w-full bg-slate-800 text-white py-3.5 rounded-xl font-bold shadow-lg active:scale-95 transition-transform flex justify-center items-center gap-2">
+              <button type="submit" className="w-full bg-slate-800 text-white py-4 rounded-xl font-bold shadow-lg active:scale-95 transition-transform flex justify-center items-center gap-2 text-sm touch-manipulation">
                 <Save className="w-4 h-4" /> 기록 저장
               </button>
             </form>
@@ -384,20 +382,20 @@ export default function App() {
                 <div key={entry.date} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
                   <div className="flex items-center gap-3">
                     <div className="bg-slate-100 p-2 rounded-lg text-center min-w-[45px]">
-                      <span className="block text-xs text-slate-400">{entry.date.slice(5,7)}월</span>
-                      <span className="block text-lg font-bold text-slate-700">{entry.date.slice(8,10)}</span>
+                      <span className="block text-[10px] text-slate-400">{entry.date.slice(5,7)}월</span>
+                      <span className="block text-base font-bold text-slate-700">{entry.date.slice(8,10)}</span>
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-800">{entry.weight}kg</span>
+                        <span className="font-bold text-slate-800 text-sm">{entry.weight}kg</span>
                         {entry.kneePain >= 5 && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 rounded">무릎통증 {entry.kneePain}</span>}
                       </div>
-                      <div className="text-xs text-slate-500 mt-0.5">
+                      <div className="text-[10px] text-slate-500 mt-0.5">
                         💧 {entry.water || 0}ml | 😴 {entry.sleepQuality}점
                       </div>
                     </div>
                   </div>
-                  <button onClick={() => handleDelete(entry.date)} className="text-gray-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={() => handleDelete(entry.date)} className="text-gray-300 hover:text-red-500 p-2"><Trash2 className="w-4 h-4" /></button>
                 </div>
               ))}
             </div>
@@ -406,20 +404,20 @@ export default function App() {
 
         {/* === [탭 2] 달력 화면 === */}
         {activeTab === 'calendar' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 animate-in zoom-in duration-300">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 animate-in zoom-in duration-300">
             <div className="flex justify-between items-center mb-4">
               <button 
                 onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}
-                className="p-1 hover:bg-gray-100 rounded-full"
+                className="p-2 hover:bg-gray-100 rounded-full"
               >
                 <ChevronLeft className="w-5 h-5 text-gray-500" />
               </button>
-              <h2 className="text-lg font-bold text-slate-800">
+              <h2 className="text-base font-bold text-slate-800">
                 {currentDate.getFullYear()}년 {currentDate.getMonth() + 1}월
               </h2>
               <button 
                 onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}
-                className="p-1 hover:bg-gray-100 rounded-full"
+                className="p-2 hover:bg-gray-100 rounded-full"
               >
                 <ChevronRight className="w-5 h-5 text-gray-500" />
               </button>
@@ -430,15 +428,16 @@ export default function App() {
                 <div key={day} className="text-xs font-bold text-slate-400 py-1">{day}</div>
               ))}
             </div>
+            {/* gap을 줄여서 작은 화면 대응 */}
             <div className="grid grid-cols-7 gap-1">
               {renderCalendar()}
             </div>
-            <div className="mt-4 flex gap-4 justify-center text-xs text-slate-500">
-              <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-400"></div>컨디션 굿</div>
-              <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-400"></div>통증 주의</div>
-              <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-purple-400"></div>운동 함</div>
+            <div className="mt-4 flex gap-3 justify-center text-[10px] text-slate-500">
+              <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-green-400"></div>컨디션 굿</div>
+              <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-red-400"></div>통증 주의</div>
+              <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-purple-400"></div>운동 함</div>
             </div>
-            <p className="text-xs text-slate-400 text-center mt-3">💡 날짜를 클릭하면 해당 날짜의 기록을 수정할 수 있습니다.</p>
+            <p className="text-[10px] text-slate-400 text-center mt-3">💡 날짜를 클릭하면 수정 가능</p>
           </div>
         )}
 
@@ -448,13 +447,13 @@ export default function App() {
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
                 <div className="text-xs text-slate-400 mb-1">총 체중 변화</div>
-                <div className={`text-2xl font-extrabold ${Number(getWeightChange()) <= 0 ? 'text-blue-500' : 'text-red-500'}`}>
+                <div className={`text-xl font-extrabold ${Number(getWeightChange()) <= 0 ? 'text-blue-500' : 'text-red-500'}`}>
                   {getWeightChange()} kg
                 </div>
               </div>
               <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
                 <div className="text-xs text-slate-400 mb-1">평균 수면 퀄리티</div>
-                <div className="text-2xl font-extrabold text-indigo-500">{getAverage('sleepQuality')} <span className="text-sm text-gray-400">/ 5.0</span></div>
+                <div className="text-xl font-extrabold text-indigo-500">{getAverage('sleepQuality')} <span className="text-sm text-gray-400">/ 5.0</span></div>
               </div>
             </div>
 
@@ -484,16 +483,16 @@ export default function App() {
           <div className="space-y-5 animate-in slide-in-from-right duration-300">
             
             <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
-              <h3 className="font-bold text-indigo-800 text-lg mb-1">오늘의 추천 루틴</h3>
+              <h3 className="font-bold text-indigo-800 text-base mb-1">오늘의 추천 루틴</h3>
               <p className="text-xs text-indigo-600 mb-3">
-                서서 일하시느라 고생하셨어요! 무릎 상태에 맞춰 선택하세요.
+                무릎 상태에 맞춰 선택하세요.
               </p>
               
-              <div className="flex gap-2 text-sm">
-                <span className={`px-3 py-1 rounded-full border ${formData.kneePain >= 4 ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-400 border-gray-200'}`}>
+              <div className="flex gap-2 text-xs">
+                <span className={`px-2 py-1 rounded-full border ${formData.kneePain >= 4 ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-400 border-gray-200'}`}>
                   통증 있음 (4+)
                 </span>
-                <span className={`px-3 py-1 rounded-full border ${formData.kneePain < 4 ? 'bg-green-500 text-white border-green-500' : 'bg-white text-gray-400 border-gray-200'}`}>
+                <span className={`px-2 py-1 rounded-full border ${formData.kneePain < 4 ? 'bg-green-500 text-white border-green-500' : 'bg-white text-gray-400 border-gray-200'}`}>
                   컨디션 좋음
                 </span>
               </div>
@@ -501,9 +500,9 @@ export default function App() {
 
             {/* 루틴 A: 숏풋 & L자 다리 (순환/재활) */}
             <div className={`border-l-4 border-red-400 bg-white p-4 rounded-r-xl shadow-sm ${formData.kneePain >= 4 ? 'ring-2 ring-red-200' : 'opacity-70'}`}>
-              <h4 className="font-bold text-slate-800 flex items-center gap-2">
+              <h4 className="font-bold text-slate-800 flex items-center gap-2 text-sm">
                 <Footprints className="w-4 h-4 text-red-500" />
-                루틴 A: 숏풋 & 하체 순환 (재활)
+                루틴 A: 숏풋 & 하체 순환
               </h4>
               <p className="text-xs text-slate-500 mb-3">발의 아치를 살려 무릎 부담을 줄이고 붓기를 뺍니다.</p>
               <ul className="space-y-3 text-sm text-gray-700">
@@ -511,14 +510,14 @@ export default function App() {
                   <div className="w-1.5 h-1.5 bg-red-400 rounded-full mt-1.5"></div> 
                   <div>
                     <strong>숏풋 (Short Foot)</strong> - 5분<br/>
-                    <span className="text-xs text-gray-500">발가락을 펴고 발바닥 아치에 힘주기 (무릎 안정성 핵심)</span>
+                    <span className="text-xs text-gray-500">발가락을 펴고 발바닥 아치에 힘주기</span>
                   </div>
                 </li>
                 <li className="flex items-start gap-2">
                   <div className="w-1.5 h-1.5 bg-red-400 rounded-full mt-1.5"></div> 
                   <div>
                     <strong>L자 다리</strong> - 10분<br/>
-                    <span className="text-xs text-gray-500">벽에 다리 기대고 누워있기 (부종 완화 필수)</span>
+                    <span className="text-xs text-gray-500">벽에 다리 기대고 누워 붓기 빼기</span>
                   </div>
                 </li>
                 <li className="flex items-start gap-2">
@@ -532,37 +531,31 @@ export default function App() {
 
             {/* 루틴 B: 맨몸 하체 & 코어 (무산소) */}
             <div className={`border-l-4 border-green-400 bg-white p-4 rounded-r-xl shadow-sm ${formData.kneePain < 4 ? 'ring-2 ring-green-200' : 'opacity-70'}`}>
-              <h4 className="font-bold text-slate-800 flex items-center gap-2">
+              <h4 className="font-bold text-slate-800 flex items-center gap-2 text-sm">
                 <LayoutGrid className="w-4 h-4 text-green-500" />
-                루틴 B: 맨몸 하체 & 코어 (무산소)
+                루틴 B: 맨몸 하체 & 코어
               </h4>
-              <p className="text-xs text-slate-500 mb-3">무릎 충격은 줄이고 속근육을 채우는 바디웨이트 루틴입니다.</p>
+              <p className="text-xs text-slate-500 mb-3">무릎 충격은 줄이고 속근육을 채우는 바디웨이트.</p>
               <ul className="space-y-3 text-sm text-gray-700">
                 <li className="flex items-start gap-2">
                   <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-1.5"></div> 
                   <div>
                     <strong>글루트 브릿지</strong> - 15회 x 3세트<br/>
-                    <span className="text-xs text-gray-500">누워서 엉덩이 들기 (무릎 부담 없이 힙업)</span>
+                    <span className="text-xs text-gray-500">누워서 엉덩이 들기</span>
                   </div>
                 </li>
                 <li className="flex items-start gap-2">
                   <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-1.5"></div> 
                   <div>
                     <strong>데드버그 (Deadbug)</strong> - 20회 x 3세트<br/>
-                    <span className="text-xs text-gray-500">누워서 팔다리 교차 내리기 (허리/코어 강화)</span>
+                    <span className="text-xs text-gray-500">누워서 팔다리 교차 (코어 강화)</span>
                   </div>
                 </li>
                  <li className="flex items-start gap-2">
                   <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-1.5"></div> 
                   <div>
                     <strong>클램쉘 (Clamshell)</strong> - 각 15회<br/>
-                    <span className="text-xs text-gray-500">옆으로 누워 무릎 벌리기 (중둔근 강화 → 무릎 통증 예방)</span>
-                  </div>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full mt-1.5"></div> 
-                  <div>
-                    <strong>사이드 레그 레이즈</strong> - 각 15회
+                    <span className="text-xs text-gray-500">옆으로 누워 무릎 벌리기 (중둔근)</span>
                   </div>
                 </li>
               </ul>
@@ -571,7 +564,7 @@ export default function App() {
              <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 mt-4">
                 <h4 className="font-bold text-orange-800 text-sm mb-2">🌙 꿀팁</h4>
                 <p className="text-xs text-orange-700">
-                  야간 근무 후에는 코티졸 수치가 높아요. 과격한 운동보다 <strong>루틴 A</strong> 후 따뜻한 물 샤워가 수면에 더 도움이 됩니다.
+                  야간 근무 후 코티졸 수치가 높을 땐 과격한 운동보다 <strong>루틴 A</strong> 후 따뜻한 물 샤워가 수면에 도움이 됩니다.
                 </p>
              </div>
           </div>
